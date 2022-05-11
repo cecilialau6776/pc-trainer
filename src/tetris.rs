@@ -104,7 +104,6 @@ impl Tetris {
     ) -> Result<(), String> {
         texture_canvas.set_draw_color(Color::RGBA(0, 0, 0, 0));
         texture_canvas.clear();
-        println!("{:?}", self.board[self.line_map[1]][4]);
         for line in 0..BOARD_HEIGHT {
             for col in 0..BOARD_WIDTH {
                 match self.board[self.line_map[line]][col] {
@@ -117,7 +116,6 @@ impl Tetris {
                     Piece::O => texture_canvas.set_draw_color(crate::O_COLOR),
                     Piece::None => continue,
                 }
-                println!("{:?}", texture_canvas.draw_color().rgb());
                 texture_canvas.fill_rect(Rect::new(
                     x_offset + (col as u32 * crate::TILE_SIZE) as i32,
                     y_offset + (line as u32 * crate::TILE_SIZE) as i32,
@@ -137,46 +135,46 @@ impl Tetris {
         self.line_active = 1;
         match self.active_piece {
             Piece::T => {
-                self.board[self.line_map[0]][4] = self.active_piece;
-                self.board[self.line_map[1]][3] = self.active_piece;
-                self.board[self.line_map[1]][4] = self.active_piece;
-                self.board[self.line_map[1]][5] = self.active_piece;
+                self.board[self.line_map[2]][4] = self.active_piece;
+                self.board[self.line_map[3]][3] = self.active_piece;
+                self.board[self.line_map[3]][4] = self.active_piece;
+                self.board[self.line_map[3]][5] = self.active_piece;
             }
             Piece::I => {
-                self.board[self.line_map[1]][3] = self.active_piece;
-                self.board[self.line_map[1]][4] = self.active_piece;
-                self.board[self.line_map[1]][5] = self.active_piece;
-                self.board[self.line_map[1]][6] = self.active_piece;
+                self.board[self.line_map[3]][3] = self.active_piece;
+                self.board[self.line_map[3]][4] = self.active_piece;
+                self.board[self.line_map[3]][5] = self.active_piece;
+                self.board[self.line_map[3]][6] = self.active_piece;
             }
             Piece::J => {
-                self.board[self.line_map[0]][3] = self.active_piece;
-                self.board[self.line_map[1]][3] = self.active_piece;
-                self.board[self.line_map[1]][4] = self.active_piece;
-                self.board[self.line_map[1]][5] = self.active_piece;
+                self.board[self.line_map[2]][3] = self.active_piece;
+                self.board[self.line_map[3]][3] = self.active_piece;
+                self.board[self.line_map[3]][4] = self.active_piece;
+                self.board[self.line_map[3]][5] = self.active_piece;
             }
             Piece::L => {
-                self.board[self.line_map[0]][5] = self.active_piece;
-                self.board[self.line_map[1]][3] = self.active_piece;
-                self.board[self.line_map[1]][4] = self.active_piece;
-                self.board[self.line_map[1]][5] = self.active_piece;
+                self.board[self.line_map[2]][5] = self.active_piece;
+                self.board[self.line_map[3]][3] = self.active_piece;
+                self.board[self.line_map[3]][4] = self.active_piece;
+                self.board[self.line_map[3]][5] = self.active_piece;
             }
             Piece::S => {
-                self.board[self.line_map[0]][4] = self.active_piece;
-                self.board[self.line_map[0]][5] = self.active_piece;
-                self.board[self.line_map[1]][3] = self.active_piece;
-                self.board[self.line_map[1]][4] = self.active_piece;
+                self.board[self.line_map[2]][4] = self.active_piece;
+                self.board[self.line_map[2]][5] = self.active_piece;
+                self.board[self.line_map[3]][3] = self.active_piece;
+                self.board[self.line_map[3]][4] = self.active_piece;
             }
             Piece::Z => {
-                self.board[self.line_map[0]][3] = self.active_piece;
-                self.board[self.line_map[0]][4] = self.active_piece;
-                self.board[self.line_map[1]][4] = self.active_piece;
-                self.board[self.line_map[1]][5] = self.active_piece;
+                self.board[self.line_map[2]][3] = self.active_piece;
+                self.board[self.line_map[2]][4] = self.active_piece;
+                self.board[self.line_map[3]][4] = self.active_piece;
+                self.board[self.line_map[3]][5] = self.active_piece;
             }
             Piece::O => {
-                self.board[self.line_map[0]][4] = self.active_piece;
-                self.board[self.line_map[0]][5] = self.active_piece;
-                self.board[self.line_map[1]][4] = self.active_piece;
-                self.board[self.line_map[1]][5] = self.active_piece;
+                self.board[self.line_map[2]][4] = self.active_piece;
+                self.board[self.line_map[2]][5] = self.active_piece;
+                self.board[self.line_map[3]][4] = self.active_piece;
+                self.board[self.line_map[3]][5] = self.active_piece;
             }
             Piece::None => {}
         }
