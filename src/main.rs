@@ -3,7 +3,7 @@ mod tetris;
 
 extern crate sdl2;
 
-use crate::tetris::{Piece, Tetris, BOARD_HEIGHT, BOARD_WIDTH};
+use crate::tetris::{Tetris, BOARD_HEIGHT, BOARD_WIDTH};
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use sdl2::mouse::MouseButton;
@@ -12,6 +12,9 @@ use sdl2::rect::{Point, Rect};
 use sdl2::render::{Canvas, Texture, TextureCreator};
 use sdl2::video::{Window, WindowContext};
 use std::collections::HashMap;
+use std::ops::Sub;
+use std::thread::current;
+use std::time::{Duration, SystemTime};
 
 const TILE_SIZE: u32 = 32;
 
@@ -148,46 +151,29 @@ pub fn main() -> Result<(), String> {
     let mut boards = vec![Tetris::new()];
 
     let mut event_pump = sdl_context.event_pump()?;
-    let mut frame: u32 = 0;
-    let mut scale: f32 = 3.0;
-    'running: loop {
+
+    let event_subsystem = sdl_context.event().map_err(|e| e.to_string())?;
+    // game loop
+    let mut current_time = SystemTime::now();
+    'game_loop: loop {
+        // calculate frame time and fps
+        let new_time = SystemTime::now();
+        let frame_time = new_time
+            .duration_since(current_time)
+            .map_err(|e| e.to_string())?;
+        current_time = new_time;
+        let fps = (1.0 / frame_time.as_secs_f64()) as u32;
         // handle events
         for event in event_pump.poll_iter() {
             match event {
-                Event::Quit { .. }
-                | Event::KeyDown {
-                    keycode: Some(Keycode::Escape),
-                    ..
-                } => break 'running,
-
-                Event::KeyDown {
-                    keycode: Some(Keycode::Space),
-                    repeat: false,
-                    ..
-                } => {
-                    boards[0].spawn_next();
-                    // boards[0].toggle_state();
-                }
-
-                Event::KeyDown {
-                    keycode: Some(Keycode::S),
-                    repeat: false,
-                    ..
-                } => {
-                    scale -= 0.1;
-                }
-
-                Event::KeyDown {
-                    keycode: Some(Keycode::W),
-                    repeat: false,
-                    ..
-                } => {
-                    scale += 0.1;
-                }
-
+                Event::Quit { .. } => break 'game_loop,
+                // TODO: process in event handler
                 _ => {}
             }
         }
+
+        // update playing board
+        // boards[0].update(&current_time);
 
         render(
             &mut canvas,
@@ -197,6 +183,46 @@ pub fn main() -> Result<(), String> {
         )?;
         canvas.present();
     }
+    // 'running: loop {
+    //     // handle events
+    //     for event in event_pump.poll_iter() {
+    //         match event {
+    //             Event::Quit { .. }
+    //             | Event::KeyDown {
+    //                 keycode: Some(Keycode::Escape),
+    //                 ..
+    //             } => break 'running,
+
+    //             Event::KeyDown {
+    //                 keycode: Some(Keycode::Space),
+    //                 repeat: false,
+    //                 ..
+    //             } => {
+    //                 boards[0].spawn_next();
+    //                 // boards[0].toggle_state();
+    //             }
+
+    //             Event::KeyDown {
+    //                 keycode: Some(Keycode::S),
+    //                 repeat: false,
+    //                 ..
+    //             } => {
+    //                 scale -= 0.1;
+    //             }
+
+    //             Event::KeyDown {
+    //                 keycode: Some(Keycode::W),
+    //                 repeat: false,
+    //                 ..
+    //             } => {
+    //                 scale += 0.1;
+    //             }
+
+    //             _ => {}
+    //         }
+    //     }
+
+    // }
 
     Ok(())
 }

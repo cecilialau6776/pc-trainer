@@ -131,6 +131,9 @@ impl Tetris {
     pub fn spawn_next(&mut self) {
         // TODO: check for top-out
         self.active_piece = self.queue.pop_front().unwrap_or(Piece::None);
+        if self.queue.len() < 7 {
+            self.queue_add_bag();
+        }
         self.col_active = 4;
         self.line_active = 1;
         match self.active_piece {
