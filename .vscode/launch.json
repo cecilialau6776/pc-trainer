@@ -5,41 +5,15 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "type": "lldb",
+            "name": "(Windows) Launch",
+            "type": "cppvsdbg",
             "request": "launch",
-            "name": "Debug executable 'pc-trainer'",
-            "cargo": {
-                "args": [
-                    "build",
-                    "--bin=pc-trainer",
-                    "--package=pc-trainer"
-                ],
-                "filter": {
-                    "name": "pc-trainer",
-                    "kind": "bin"
-                }
-            },
+            "program": "${workspaceRoot}/target/debug/pc-trainer.exe",
             "args": [],
-            "cwd": "${workspaceFolder}"
-        },
-        {
-            "type": "lldb",
-            "request": "launch",
-            "name": "Debug unit tests in executable 'pc-trainer'",
-            "cargo": {
-                "args": [
-                    "test",
-                    "--no-run",
-                    "--bin=pc-trainer",
-                    "--package=pc-trainer"
-                ],
-                "filter": {
-                    "name": "pc-trainer",
-                    "kind": "bin"
-                }
-            },
-            "args": [],
-            "cwd": "${workspaceFolder}"
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "console": "externalTerminal"
         }
     ]
 }

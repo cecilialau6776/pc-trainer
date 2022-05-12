@@ -1,13 +1,13 @@
 #[macro_export]
 macro_rules! texture {
-    ( $texture_canvas:expr, $draw_color:expr, $tile_size:expr ) => {{
-        for x in 0..$tile_size {
-            for y in 0..$tile_size {
-                $texture_canvas.set_draw_color($draw_color);
-                $texture_canvas
-                    .draw_point(Point::new(x as i32, y as i32))
-                    .expect("could not draw point");
-            }
-        }
-    }};
+    ($self:ident) => {
+        $self
+            .texture_creator
+            .create_texture_target(
+                sdl2::pixels::PixelFormatEnum::RGBA32,
+                4 + BOARD_WIDTH as u32 * TILE_SIZE,
+                4 + BOARD_HEIGHT as u32 * TILE_SIZE,
+            )
+            .map_err(|e| e.to_string())?
+    };
 }
