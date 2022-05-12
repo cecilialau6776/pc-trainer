@@ -110,6 +110,8 @@ impl<'a> Renderer<'a> {
     }
 
     pub fn render(&mut self, game_boards: &[Tetris]) -> Result<(), String> {
+        self.canvas.set_draw_color(Color::RGB(0, 0, 0));
+        self.canvas.clear();
         let mut main_board_texture: Texture = Renderer::make_texture(
             self.texture_creator.expect("tex creator not initalized"),
             None,
