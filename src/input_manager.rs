@@ -3,7 +3,10 @@ use std::time::{Duration, SystemTime};
 use sdl2::event::Event;
 use sdl2::keyboard::Scancode;
 
-use crate::tetris::{Direction, Rotation, State, Tetris};
+use crate::{
+    softdrop,
+    tetris::{Direction, Rotation, State, Tetris},
+};
 
 pub struct InputManager {
     events: Vec<(Input, SystemTime, u32)>,
@@ -31,6 +34,7 @@ pub struct InputManager {
 enum Input {
     Left,
     Right,
+    Down,
 }
 
 impl InputManager {
@@ -53,6 +57,7 @@ impl InputManager {
             swap: vec![Scancode::LShift],
         }
     }
+
     pub fn process_input(&mut self, event: Event, game: &mut Tetris, timestamp: SystemTime) {
         if let Event::KeyDown {
             repeat: false,
@@ -87,10 +92,8 @@ impl InputManager {
                 }
             } else if self.softdrop.contains(&sc) {
                 if game.state() == State::Playing {
-                    match self.sdf {
-                        100 => game.softdrop_instant(timestamp),
-                        _ => game.softdrop_start(self.sdf),
-                    }
+                    softdrop!(self, game, timestamp);
+                    self.events.push((Input::Down, timestamp, 0));
                 }
             } else if self.rot_counterclockwise.contains(&sc) {
                 if game.state() == State::Playing {
@@ -124,6 +127,8 @@ impl InputManager {
                 self.events.retain(|e| e.0 != Input::Left)
             } else if self.right.contains(&sc) {
                 self.events.retain(|e| e.0 != Input::Right)
+            } else if self.softdrop.contains(&sc) {
+                self.events.retain(|e| e.0 != Input::Down)
             }
         }
     }
@@ -146,14 +151,19 @@ impl InputManager {
                                     game.move_active(Direction::Right);
                                 }
                             }
+                            Input::Down => {}
                         }
                     } else {
                         match event.0 {
                             Input::Left => while game.move_active(Direction::Left) {},
                             Input::Right => while game.move_active(Direction::Right) {},
+                            Input::Down => {}
                         }
                     }
                 }
+            }
+            if event.0 == Input::Down {
+                softdrop!(self, game, timestamp)
             }
         }
     }

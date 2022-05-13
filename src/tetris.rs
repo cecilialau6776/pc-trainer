@@ -427,7 +427,6 @@ impl Tetris {
         self.queue.append(&mut VecDeque::from_iter(pieces_clone));
     }
 
-    // TODO: draw projection of active piece
     pub fn draw_board_texture(
         &self,
         texture_canvas: &mut Canvas<Window>,
@@ -437,19 +436,6 @@ impl Tetris {
     ) -> Result<(), String> {
         texture_canvas.set_draw_color(Color::RGBA(0, 0, 0, 0));
         texture_canvas.clear();
-        for line in 0..BOARD_HEIGHT {
-            for col in 0..BOARD_WIDTH {
-                if let Some(color) = get_color!(self.board[self.line_map[line]][col]) {
-                    texture_canvas.set_draw_color(color);
-                    texture_canvas.fill_rect(Rect::new(
-                        x_offset + (col as u32 * crate::TILE_SIZE) as i32,
-                        y_offset + (line as u32 * crate::TILE_SIZE) as i32,
-                        crate::TILE_SIZE,
-                        crate::TILE_SIZE,
-                    ))?;
-                }
-            }
-        }
         if project {
             let (a, b, c) = get_deltas!(self.piece_active, self.rot_active);
             let la = self.line_active as i32;
@@ -485,6 +471,19 @@ impl Tetris {
                     texture_canvas.fill_rect(Rect::new(
                         x_offset + (point.1 as u32 * crate::TILE_SIZE) as i32,
                         y_offset + (point.0 as u32 * crate::TILE_SIZE) as i32,
+                        crate::TILE_SIZE,
+                        crate::TILE_SIZE,
+                    ))?;
+                }
+            }
+        }
+        for line in 0..BOARD_HEIGHT {
+            for col in 0..BOARD_WIDTH {
+                if let Some(color) = get_color!(self.board[self.line_map[line]][col]) {
+                    texture_canvas.set_draw_color(color);
+                    texture_canvas.fill_rect(Rect::new(
+                        x_offset + (col as u32 * crate::TILE_SIZE) as i32,
+                        y_offset + (line as u32 * crate::TILE_SIZE) as i32,
                         crate::TILE_SIZE,
                         crate::TILE_SIZE,
                     ))?;

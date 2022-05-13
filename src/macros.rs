@@ -47,6 +47,16 @@ macro_rules! get_color {
 }
 
 #[macro_export]
+macro_rules! softdrop {
+    ($self:ident, $game:expr, $timestamp:expr) => {
+        match $self.sdf {
+            100 => $game.softdrop_instant($timestamp),
+            _ => $game.softdrop_start($self.sdf),
+        }
+    };
+}
+
+#[macro_export]
 macro_rules! transmute_active {
     ($self:ident, $line:expr, $col:expr, $rot:expr) => {
         $self.set_piece_at(
