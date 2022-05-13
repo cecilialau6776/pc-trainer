@@ -31,6 +31,22 @@ macro_rules! get_at {
 }
 
 #[macro_export]
+macro_rules! get_color {
+    ($piece:expr) => {
+        match $piece {
+            Piece::T => Some(crate::T_COLOR),
+            Piece::I => Some(crate::I_COLOR),
+            Piece::J => Some(crate::J_COLOR),
+            Piece::L => Some(crate::L_COLOR),
+            Piece::S => Some(crate::S_COLOR),
+            Piece::Z => Some(crate::Z_COLOR),
+            Piece::O => Some(crate::O_COLOR),
+            Piece::None => None,
+        }
+    };
+}
+
+#[macro_export]
 macro_rules! transmute_active {
     ($self:ident, $line:expr, $col:expr, $rot:expr) => {
         $self.set_piece_at(

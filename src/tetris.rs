@@ -6,7 +6,7 @@ use sdl2::video::Window;
 use std::collections::VecDeque;
 use std::time::SystemTime;
 
-use crate::{get_at, get_deltas, set_at};
+use crate::{get_at, get_color, get_deltas, set_at};
 
 pub const BOARD_HEIGHT: usize = 24;
 pub const BOARD_WIDTH: usize = 10;
@@ -439,22 +439,56 @@ impl Tetris {
         texture_canvas.clear();
         for line in 0..BOARD_HEIGHT {
             for col in 0..BOARD_WIDTH {
-                match self.board[self.line_map[line]][col] {
-                    Piece::T => texture_canvas.set_draw_color(crate::T_COLOR),
-                    Piece::I => texture_canvas.set_draw_color(crate::I_COLOR),
-                    Piece::J => texture_canvas.set_draw_color(crate::J_COLOR),
-                    Piece::L => texture_canvas.set_draw_color(crate::L_COLOR),
-                    Piece::S => texture_canvas.set_draw_color(crate::S_COLOR),
-                    Piece::Z => texture_canvas.set_draw_color(crate::Z_COLOR),
-                    Piece::O => texture_canvas.set_draw_color(crate::O_COLOR),
-                    Piece::None => continue,
+                if let Some(color) = get_color!(self.board[self.line_map[line]][col]) {
+                    texture_canvas.set_draw_color(color);
+                    texture_canvas.fill_rect(Rect::new(
+                        x_offset + (col as u32 * crate::TILE_SIZE) as i32,
+                        y_offset + (line as u32 * crate::TILE_SIZE) as i32,
+                        crate::TILE_SIZE,
+                        crate::TILE_SIZE,
+                    ))?;
                 }
-                texture_canvas.fill_rect(Rect::new(
-                    x_offset + (col as u32 * crate::TILE_SIZE) as i32,
-                    y_offset + (line as u32 * crate::TILE_SIZE) as i32,
-                    crate::TILE_SIZE,
-                    crate::TILE_SIZE,
-                ))?;
+            }
+        }
+        if project {
+            let (a, b, c) = get_deltas!(self.piece_active, self.rot_active);
+            let la = self.line_active as i32;
+            let ca = self.col_active as i32;
+            let orig = vec![
+                (la, ca),
+                (la + a.0, ca + a.1),
+                (la + b.0, ca + b.1),
+                (la + c.0, ca + c.1),
+            ];
+            let mut piece = orig.clone();
+            while (orig.contains(&piece[0]) || get_at!(self, piece[0].0, piece[0].1) == Piece::None)
+                && (orig.contains(&piece[1])
+                    || get_at!(self, piece[1].0, piece[1].1) == Piece::None)
+                && (orig.contains(&piece[2])
+                    || get_at!(self, piece[2].0, piece[2].1) == Piece::None)
+                && (orig.contains(&piece[3])
+                    || get_at!(self, piece[3].0, piece[3].1) == Piece::None)
+            {
+                piece[0] = (piece[0].0 + 1, piece[0].1);
+                piece[1] = (piece[1].0 + 1, piece[1].1);
+                piece[2] = (piece[2].0 + 1, piece[2].1);
+                piece[3] = (piece[3].0 + 1, piece[3].1);
+            }
+            piece[0] = (piece[0].0 - 1, piece[0].1);
+            piece[1] = (piece[1].0 - 1, piece[1].1);
+            piece[2] = (piece[2].0 - 1, piece[2].1);
+            piece[3] = (piece[3].0 - 1, piece[3].1);
+            if let Some(color) = get_color!(self.piece_active) {
+                let color = color.rgba();
+                texture_canvas.set_draw_color(Color::RGBA(color.0, color.1, color.2, color.3 / 2));
+                for point in piece.iter() {
+                    texture_canvas.fill_rect(Rect::new(
+                        x_offset + (point.1 as u32 * crate::TILE_SIZE) as i32,
+                        y_offset + (point.0 as u32 * crate::TILE_SIZE) as i32,
+                        crate::TILE_SIZE,
+                        crate::TILE_SIZE,
+                    ))?;
+                }
             }
         }
         Ok(())
