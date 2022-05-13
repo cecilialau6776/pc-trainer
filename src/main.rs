@@ -44,6 +44,8 @@ pub fn main() -> Result<(), String> {
         current_time = new_time;
         let fps = (1.0 / frame_time.as_secs_f64()) as u32;
 
+        // update input manager to process das
+        input_manager.update(new_time, &mut boards[0]);
         // handle events
         for event in event_pump.poll_iter() {
             let timestamp = SystemTime::now();

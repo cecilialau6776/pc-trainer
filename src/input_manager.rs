@@ -1,4 +1,4 @@
-use std::{collections::VecDeque, time::SystemTime};
+use std::time::SystemTime;
 
 use sdl2::event::Event;
 use sdl2::keyboard::Scancode;
@@ -6,7 +6,7 @@ use sdl2::keyboard::Scancode;
 use crate::tetris::{Direction, Rotation, State, Tetris};
 
 pub struct InputManager {
-    event_queue: VecDeque<Event>,
+    events: Vec<(Input, SystemTime)>,
 
     // handling settings
     arr: u32, // auto-repeat rate: time in ms it takes between each movement after das has started
@@ -14,7 +14,7 @@ pub struct InputManager {
     dcd: u32, // das cut delay: any ongoing DAS movement is paused for this long after dropping/rotating a piece
     sdf: u32, // soft drop factor: the factor with which soft drop changes the gravity speed. 100 is instant soft drop
     pahd: u32, // prevent accidental hard drop: time in ms after a piece that locks on its own before hard drop becomes available
-    cdwcd: bool, // cancel das when changing directions.
+    cdwcd: u32, // cancel das when changing directions: time in ms to wait until existing das kicks in again
 
     // keybinds
     left: Vec<Scancode>,
@@ -27,16 +27,22 @@ pub struct InputManager {
     swap: Vec<Scancode>,
 }
 
+#[derive(PartialEq, Eq)]
+enum Input {
+    Left,
+    Right,
+}
+
 impl InputManager {
     pub fn new() -> Self {
         InputManager {
-            event_queue: VecDeque::new(),
+            events: Vec::new(),
             arr: 0,
             das: 100,
             dcd: 0,
             sdf: 100,
             pahd: 100,
-            cdwcd: false,
+            cdwcd: 100,
             left: vec![Scancode::Left],
             right: vec![Scancode::Right],
             softdrop: vec![Scancode::Down],
@@ -58,12 +64,26 @@ impl InputManager {
             if self.left.contains(&sc) {
                 if game.state() == State::Playing {
                     game.move_active(Direction::Left);
-                    self.event_queue.push_back(event); // for das timings
+                    self.events.push((Input::Left, timestamp)); // for das timings
+                    if self.cdwcd > 0 {
+                        for ev in self.events.iter_mut() {
+                            if ev.0 == Input::Right {
+                                *ev = (Input::Right, timestamp);
+                            }
+                        }
+                    }
                 }
             } else if self.right.contains(&sc) {
                 if game.state() == State::Playing {
                     game.move_active(Direction::Right);
-                    self.event_queue.push_back(event); // for das timings
+                    self.events.push((Input::Right, timestamp)); // for das timings
+                    if self.cdwcd > 0 {
+                        for ev in self.events.iter_mut() {
+                            if ev.0 == Input::Left {
+                                *ev = (Input::Left, timestamp);
+                            }
+                        }
+                    }
                 }
             } else if self.softdrop.contains(&sc) {
                 if game.state() == State::Playing {
@@ -85,8 +105,35 @@ impl InputManager {
                     game.harddrop();
                 }
             }
+        } else if let Event::KeyUp {
+            repeat: false,
+            scancode,
+            ..
+        } = event
+        {
+            let sc = scancode.expect("no scancode?");
+            if self.left.contains(&sc) {
+                self.events.retain(|e| e.0 != Input::Left)
+            } else if self.right.contains(&sc) {
+                self.events.retain(|e| e.0 != Input::Right)
+            }
         }
     }
 
-    pub fn update(&self, timestamp: u32) {}
+    pub fn update(&self, timestamp: SystemTime, game: &mut Tetris) {
+        for event in self.events.iter() {
+            if let Ok(dur) = timestamp.duration_since(event.1) {
+                if dur.as_millis() as u32 > self.das {
+                    if self.arr > 0 {
+                        let moves = (dur.as_millis() as u32 - self.das) / self.arr;
+                    } else {
+                        match event.0 {
+                            Input::Left => while game.move_active(Direction::Left) {},
+                            Input::Right => while game.move_active(Direction::Right) {},
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
