@@ -119,7 +119,7 @@ impl<'a> Renderer<'a> {
         let iter_vec = vec![(&mut main_board_texture, &game_boards[0])];
         self.canvas
             .with_multiple_texture_canvas(iter_vec.iter(), |c, game| {
-                game.draw_board_texture(c, 2, 2)
+                game.draw_board_texture(c, 2, 2, true)
                     .expect("couldn't draw board");
             })
             .map_err(|e| e.to_string())?;

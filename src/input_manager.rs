@@ -1,4 +1,4 @@
-use std::time::SystemTime;
+use std::time::{Duration, SystemTime};
 
 use sdl2::event::Event;
 use sdl2::keyboard::Scancode;
@@ -6,7 +6,7 @@ use sdl2::keyboard::Scancode;
 use crate::tetris::{Direction, Rotation, State, Tetris};
 
 pub struct InputManager {
-    events: Vec<(Input, SystemTime)>,
+    events: Vec<(Input, SystemTime, u32)>,
 
     // handling settings
     arr: u32, // auto-repeat rate: time in ms it takes between each movement after das has started
@@ -27,7 +27,7 @@ pub struct InputManager {
     swap: Vec<Scancode>,
 }
 
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Clone, Copy)]
 enum Input {
     Left,
     Right,
@@ -64,11 +64,11 @@ impl InputManager {
             if self.left.contains(&sc) {
                 if game.state() == State::Playing {
                     game.move_active(Direction::Left);
-                    self.events.push((Input::Left, timestamp)); // for das timings
+                    self.events.push((Input::Left, timestamp, 0)); // for das timings
                     if self.cdwcd > 0 {
                         for ev in self.events.iter_mut() {
                             if ev.0 == Input::Right {
-                                *ev = (Input::Right, timestamp);
+                                *ev = (Input::Right, timestamp, 0);
                             }
                         }
                     }
@@ -76,11 +76,11 @@ impl InputManager {
             } else if self.right.contains(&sc) {
                 if game.state() == State::Playing {
                     game.move_active(Direction::Right);
-                    self.events.push((Input::Right, timestamp)); // for das timings
+                    self.events.push((Input::Right, timestamp, 0)); // for das timings
                     if self.cdwcd > 0 {
                         for ev in self.events.iter_mut() {
                             if ev.0 == Input::Left {
-                                *ev = (Input::Left, timestamp);
+                                *ev = (Input::Left, timestamp, 0);
                             }
                         }
                     }
@@ -100,9 +100,17 @@ impl InputManager {
                 if game.state() == State::Playing {
                     game.rot_active(Rotation::Right);
                 }
+            } else if self.rot_180.contains(&sc) {
+                if game.state() == State::Playing {
+                    game.rot_active(Rotation::Flip);
+                }
             } else if self.harddrop.contains(&sc) {
                 if game.state() == State::Playing {
                     game.harddrop();
+                }
+            } else if self.swap.contains(&sc) {
+                if game.state() == State::Playing {
+                    game.swap();
                 }
             }
         } else if let Event::KeyUp {
@@ -120,12 +128,25 @@ impl InputManager {
         }
     }
 
-    pub fn update(&self, timestamp: SystemTime, game: &mut Tetris) {
-        for event in self.events.iter() {
+    pub fn update(&mut self, timestamp: SystemTime, game: &mut Tetris) {
+        for event in self.events.iter_mut() {
             if let Ok(dur) = timestamp.duration_since(event.1) {
                 if dur.as_millis() as u32 > self.das {
                     if self.arr > 0 {
-                        let moves = (dur.as_millis() as u32 - self.das) / self.arr;
+                        let moves = ((dur.as_millis() as u32 - self.das) / self.arr) - event.2;
+                        *event = (event.0, event.1, event.2 + moves);
+                        match event.0 {
+                            Input::Left => {
+                                for _ in 0..moves {
+                                    game.move_active(Direction::Left);
+                                }
+                            }
+                            Input::Right => {
+                                for _ in 0..moves {
+                                    game.move_active(Direction::Right);
+                                }
+                            }
+                        }
                     } else {
                         match event.0 {
                             Input::Left => while game.move_active(Direction::Left) {},

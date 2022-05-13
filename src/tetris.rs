@@ -85,6 +85,8 @@ pub struct Tetris {
     current_gravity: u32,       // time in ms between the active piece moving down a cell
     gravity: u32,               // time in ms between the active piece moving down a cell
     gravity_timestamp: SystemTime,
+    swap_piece: Piece,
+    swapped: bool,
 }
 
 impl Tetris {
@@ -122,12 +124,14 @@ impl Tetris {
             current_gravity: 0,
             gravity: 0,
             gravity_timestamp: SystemTime::UNIX_EPOCH,
+            swap_piece: Piece::None,
+            swapped: false,
         }
     }
 
     pub fn start(&mut self) {
         self.state = State::Playing;
-        self.spawn_next();
+        self.spawn_next(None);
     }
 
     pub fn state(&self) -> State {
@@ -153,20 +157,44 @@ impl Tetris {
         self.lock_active();
     }
 
+    pub fn swap(&mut self) {
+        if !self.swapped {
+            self.swapped = true;
+            self.set_piece_at(
+                self.piece_active,
+                self.rot_active,
+                Piece::None,
+                self.line_active,
+                self.col_active,
+            );
+            let temp = self.swap_piece;
+            self.swap_piece = self.piece_active;
+            self.piece_active = temp;
+            if self.piece_active == Piece::None {
+                self.spawn_next(None);
+            } else {
+                self.spawn_next(Some(self.piece_active));
+            }
+        }
+    }
+
     fn lock_active(&mut self) {
+        self.swapped = false;
         let ((a, _), (b, _), (c, _)) = get_deltas!(self.piece_active, self.rot_active);
         // update row counts
         self.row_counts[self.line_map[self.line_active]] += 1;
         self.row_counts[self.line_map[(self.line_active as i32 + a) as usize]] += 1;
         self.row_counts[self.line_map[(self.line_active as i32 + b) as usize]] += 1;
         self.row_counts[self.line_map[(self.line_active as i32 + c) as usize]] += 1;
+        // println!("{:?}", self.row_counts);
         // TODO: do something with lines cleared
         let mut lines_cleared = 0;
-        let mut i = 0;
+        let mut i = BOARD_HEIGHT - 1;
         while i > BOARD_HEIGHT - 20 {
             if self.row_counts[self.line_map[i]] == 10 {
                 lines_cleared += 1;
-                for j in i..0 {
+                // println!("{:?}", (1..=i).rev());
+                for j in (1..=i).rev() {
                     self.row_counts[self.line_map[j]] = self.row_counts[self.line_map[j - 1]];
                     self.board[self.line_map[j]] = self.board[self.line_map[j - 1]];
                 }
@@ -174,10 +202,10 @@ impl Tetris {
                 self.board[self.line_map[0]] = [Piece::None; BOARD_WIDTH];
                 continue;
             }
-            i += 1;
+            i -= 1;
         }
         // spawn piece
-        self.spawn_next();
+        self.spawn_next(None);
     }
 
     pub fn move_active(&mut self, dir: Direction) -> bool {
@@ -240,6 +268,38 @@ impl Tetris {
 
     pub fn rot_active(&mut self, rot: Rotation) {
         let rot_final = self.rot_active + rot;
+        if rot == Rotation::Flip {
+            // remove active from board for tests
+            self.set_piece_at(
+                self.piece_active,
+                self.rot_active,
+                Piece::None,
+                self.line_active,
+                self.col_active,
+            );
+
+            let la = self.line_active as i32;
+            let ca = self.col_active as i32;
+            let (a, b, c) = get_deltas!(self.piece_active, rot_final);
+            self.rot_active = if get_at!(self, (la), (ca)) == Piece::None
+                && get_at!(self, (la + a.0), (ca + a.1)) == Piece::None
+                && get_at!(self, (la + b.0), (ca + b.1)) == Piece::None
+                && get_at!(self, (la + c.0), (ca + c.1)) == Piece::None
+            {
+                rot_final
+            } else {
+                self.rot_active
+            };
+            self.set_piece_at(
+                self.piece_active,
+                self.rot_active,
+                self.piece_active,
+                self.line_active,
+                self.col_active,
+            );
+
+            return;
+        }
         if let Some(tests) = match self.piece_active {
             Piece::T | Piece::J | Piece::L | Piece::S | Piece::Z => {
                 match (self.rot_active, rot_final) {
@@ -367,11 +427,13 @@ impl Tetris {
         self.queue.append(&mut VecDeque::from_iter(pieces_clone));
     }
 
+    // TODO: draw projection of active piece
     pub fn draw_board_texture(
         &self,
         texture_canvas: &mut Canvas<Window>,
         x_offset: i32,
         y_offset: i32,
+        project: bool,
     ) -> Result<(), String> {
         texture_canvas.set_draw_color(Color::RGBA(0, 0, 0, 0));
         texture_canvas.clear();
@@ -398,23 +460,28 @@ impl Tetris {
         Ok(())
     }
 
-    // TODO: remove pub
-    pub fn spawn_next(&mut self) {
+    fn spawn_next(&mut self, piece: Option<Piece>) {
         // TODO: check for top-out
-        self.piece_active = self.queue.pop_front().unwrap_or(Piece::None);
-        if self.queue.len() < 7 {
-            self.queue_add_bag();
-        }
+        let fill = if piece.is_none() {
+            if self.queue.len() < 7 {
+                self.queue_add_bag();
+            }
+            self.piece_active = self.queue.pop_front().unwrap_or(Piece::None);
+            self.piece_active
+        } else {
+            piece.unwrap()
+        };
+        // use fill
         self.col_active = 4;
         self.line_active = 3;
         self.rot_active = Rotation::Spawn;
         self.set_piece_at(
             self.piece_active,
             self.rot_active,
-            self.piece_active,
+            fill,
             self.line_active,
             self.col_active,
         );
-        println!("spawn piece {:?}", self.piece_active);
+        // println!("spawn piece {:?}", self.piece_active);
     }
 }
