@@ -22,7 +22,11 @@ macro_rules! set_at {
 #[macro_export]
 macro_rules! get_at {
     ($self:ident, $line:expr, $col:expr) => {
-        $self.board[$self.line_map[$line]][$col]
+        if $line < 0 || $line >= BOARD_HEIGHT as i32 || $col < 0 || $col >= BOARD_WIDTH as i32 {
+            Piece::O
+        } else {
+            $self.board[$self.line_map[$line as usize]][$col as usize]
+        }
     };
 }
 

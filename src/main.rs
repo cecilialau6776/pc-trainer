@@ -9,7 +9,6 @@ use crate::tetris::Tetris;
 use input_manager::InputManager;
 use render::Renderer;
 use sdl2::event::Event;
-use sdl2::keyboard::{Keycode, Scancode};
 use sdl2::pixels::Color;
 use std::time::SystemTime;
 
@@ -35,6 +34,7 @@ pub fn main() -> Result<(), String> {
     let mut input_manager = InputManager::new();
     // game loop
     let mut current_time = SystemTime::now();
+    boards[0].start();
     'game_loop: loop {
         // calculate frame time and fps
         let new_time = SystemTime::now();
@@ -46,13 +46,10 @@ pub fn main() -> Result<(), String> {
 
         // handle events
         for event in event_pump.poll_iter() {
+            let timestamp = SystemTime::now();
             match event {
                 Event::Quit { .. } => break 'game_loop,
-                Event::KeyDown {
-                    scancode: Some(Scancode::Space),
-                    ..
-                } => boards[0].spawn_next(),
-                _ => input_manager.process_input(event, &mut boards[0]),
+                _ => input_manager.process_input(event, &mut boards[0], timestamp),
             }
         }
 

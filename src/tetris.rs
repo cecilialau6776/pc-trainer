@@ -6,7 +6,7 @@ use sdl2::video::Window;
 use std::collections::VecDeque;
 use std::time::SystemTime;
 
-use crate::{get_at, get_deltas, set_at, transmute_active};
+use crate::{get_at, get_deltas, set_at};
 
 pub const BOARD_HEIGHT: usize = 24;
 pub const BOARD_WIDTH: usize = 10;
@@ -64,7 +64,6 @@ impl std::ops::Add for Rotation {
 
 #[derive(Clone, Copy)]
 pub enum Direction {
-    Up,
     Down,
     Left,
     Right,
@@ -83,6 +82,9 @@ pub struct Tetris {
     rng: StdRng,
     rot_active: Rotation,
     lock_timestamp: SystemTime, // starting timestamp to calculate when a lock should occur, if not harddropped.
+    current_gravity: u32,       // time in ms between the active piece moving down a cell
+    gravity: u32,               // time in ms between the active piece moving down a cell
+    gravity_timestamp: SystemTime,
 }
 
 impl Tetris {
@@ -96,6 +98,8 @@ impl Tetris {
         // Fill initial queue
         let mut queue: VecDeque<Piece> = VecDeque::new();
         let mut rng: StdRng = SeedableRng::from_entropy();
+        // queue.push_back(Piece::I);
+        // queue.push_back(Piece::S);
         let mut pieces_clone = PIECES.clone();
         pieces_clone.shuffle(&mut rng);
         queue.append(&mut VecDeque::from_iter(pieces_clone));
@@ -115,24 +119,123 @@ impl Tetris {
             line_active: 0,
             rot_active: Rotation::Spawn,
             lock_timestamp: SystemTime::UNIX_EPOCH,
+            current_gravity: 0,
+            gravity: 0,
+            gravity_timestamp: SystemTime::UNIX_EPOCH,
         }
+    }
+
+    pub fn start(&mut self) {
+        self.state = State::Playing;
+        self.spawn_next();
     }
 
     pub fn state(&self) -> State {
         self.state
     }
 
-    pub fn move_active(&mut self, dir: Direction) {
-        // TODO: check if move is valid
+    pub fn softdrop_instant(&mut self, timestamp: SystemTime) {
+        self.lock_timestamp = timestamp;
+        while self.move_active(Direction::Down) {}
+        // self.move_active(Direction::Down);
+    }
 
+    pub fn softdrop_start(&mut self, sdf: u32) {
+        self.current_gravity /= sdf;
+    }
+
+    pub fn softdrop_stop(&mut self) {
+        self.current_gravity = self.gravity;
+    }
+
+    pub fn harddrop(&mut self) {
+        while self.move_active(Direction::Down) {}
+        self.lock_active();
+    }
+
+    fn lock_active(&mut self) {
+        let ((a, _), (b, _), (c, _)) = get_deltas!(self.piece_active, self.rot_active);
+        // update row counts
+        self.row_counts[self.line_map[self.line_active]] += 1;
+        self.row_counts[self.line_map[(self.line_active as i32 + a) as usize]] += 1;
+        self.row_counts[self.line_map[(self.line_active as i32 + b) as usize]] += 1;
+        self.row_counts[self.line_map[(self.line_active as i32 + c) as usize]] += 1;
+        // TODO: do something with lines cleared
+        let mut lines_cleared = 0;
+        let mut i = 0;
+        while i > BOARD_HEIGHT - 20 {
+            if self.row_counts[self.line_map[i]] == 10 {
+                lines_cleared += 1;
+                for j in i..0 {
+                    self.row_counts[self.line_map[j]] = self.row_counts[self.line_map[j - 1]];
+                    self.board[self.line_map[j]] = self.board[self.line_map[j - 1]];
+                }
+                self.row_counts[self.line_map[0]] = 0;
+                self.board[self.line_map[0]] = [Piece::None; BOARD_WIDTH];
+                continue;
+            }
+            i += 1;
+        }
+        // spawn piece
+        self.spawn_next();
+    }
+
+    pub fn move_active(&mut self, dir: Direction) -> bool {
+        let (a, b, c) = get_deltas!(self.piece_active, self.rot_active);
+        let la = self.line_active as i32;
+        let ca = self.col_active as i32;
+        self.set_piece_at(
+            self.piece_active,
+            self.rot_active,
+            Piece::None,
+            self.line_active,
+            self.col_active,
+        );
+        if match dir {
+            Direction::Down => {
+                get_at!(self, (la + 1), ca) != Piece::None
+                    || get_at!(self, (la + 1 + a.0), (ca + a.1)) != Piece::None
+                    || get_at!(self, (la + 1 + b.0), (ca + b.1)) != Piece::None
+                    || get_at!(self, (la + 1 + c.0), (ca + c.1)) != Piece::None
+            }
+            Direction::Left => {
+                get_at!(self, (la), (ca - 1)) != Piece::None
+                    || get_at!(self, (la + a.0), (ca - 1 + a.1)) != Piece::None
+                    || get_at!(self, (la + b.0), (ca - 1 + b.1)) != Piece::None
+                    || get_at!(self, (la + c.0), (ca - 1 + c.1)) != Piece::None
+            }
+            Direction::Right => {
+                get_at!(self, (la), (ca + 1)) != Piece::None
+                    || get_at!(self, (la + a.0), (ca + 1 + a.1)) != Piece::None
+                    || get_at!(self, (la + b.0), (ca + 1 + b.1)) != Piece::None
+                    || get_at!(self, (la + c.0), (ca + 1 + c.1)) != Piece::None
+            }
+        } {
+            self.set_piece_at(
+                self.piece_active,
+                self.rot_active,
+                self.piece_active,
+                self.line_active,
+                self.col_active,
+            );
+            return false;
+        }
         // perform move
         let (line, col) = match dir {
-            Direction::Up => (self.line_active - 1, self.col_active),
             Direction::Down => (self.line_active + 1, self.col_active),
             Direction::Left => (self.line_active, self.col_active - 1),
             Direction::Right => (self.line_active, self.col_active + 1),
         };
-        transmute_active!(self, line, col, self.rot_active);
+        self.line_active = line;
+        self.col_active = col;
+        self.set_piece_at(
+            self.piece_active,
+            self.rot_active,
+            self.piece_active,
+            self.line_active,
+            self.col_active,
+        );
+        true
     }
 
     pub fn rot_active(&mut self, rot: Rotation) {
@@ -141,33 +244,34 @@ impl Tetris {
             Piece::T | Piece::J | Piece::L | Piece::S | Piece::Z => {
                 match (self.rot_active, rot_final) {
                     (Rotation::Right, Rotation::Spawn) | (Rotation::Right, Rotation::Flip) => {
-                        Some([(1, 0), (1, -1), (0, 2), (1, 2)])
+                        Some([(0, 1), (1, 1), (-2, 0), (-2, 1)])
                     }
                     (Rotation::Spawn, Rotation::Right) | (Rotation::Flip, Rotation::Right) => {
-                        Some([(-1, 0), (-1, 1), (0, -2), (-1, -2)])
+                        Some([(0, -1), (-1, -1), (2, 0), (2, -1)])
                     }
                     (Rotation::Flip, Rotation::Left) | (Rotation::Spawn, Rotation::Left) => {
-                        Some([(1, 0), (1, 1), (0, -2), (1, -2)])
+                        Some([(0, 1), (-1, 1), (2, 0), (2, 1)])
                     }
                     (Rotation::Left, Rotation::Flip) | (Rotation::Left, Rotation::Spawn) => {
-                        Some([(-1, 0), (-1, -1), (0, 2), (-1, 2)])
+                        Some([(0, -1), (1, -1), (-2, 0), (-2, -1)])
                     }
                     _ => None,
                 }
             }
+
             // TODO: fix I piece rotation; something's off
             Piece::I => match (self.rot_active, rot_final) {
                 (Rotation::Spawn, Rotation::Right) | (Rotation::Left, Rotation::Flip) => {
-                    Some([(-2, 0), (1, 0), (-2, -1), (1, 2)])
+                    Some([(0, -2), (0, 1), (1, -2), (-2, 1)])
                 }
                 (Rotation::Right, Rotation::Spawn) | (Rotation::Flip, Rotation::Left) => {
-                    Some([(2, 0), (-1, 0), (2, 1), (-1, -2)])
+                    Some([(0, 2), (0, -1), (-1, 2), (2, -1)])
                 }
                 (Rotation::Right, Rotation::Flip) | (Rotation::Spawn, Rotation::Left) => {
-                    Some([(-1, 0), (2, 0), (-1, 2), (2, -1)])
+                    Some([(0, -1), (0, 2), (-2, -1), (1, 2)])
                 }
                 (Rotation::Flip, Rotation::Right) | (Rotation::Left, Rotation::Spawn) => {
-                    Some([(1, 0), (-2, 0), (1, -2), (-2, 1)])
+                    Some([(0, 1), (0, -2), (2, 1), (-1, -2)])
                 }
                 _ => None,
             },
@@ -185,31 +289,24 @@ impl Tetris {
             // Run tests
             let (a, b, c): ((i32, i32), (i32, i32), (i32, i32)) =
                 get_deltas!(self.piece_active, rot_final);
-            for test in [(0, 0)].into_iter().chain(tests.into_iter()) {
-                if get_at!(
-                    self,
-                    (self.line_active as i32 + a.0 + test.0) as usize,
-                    (self.col_active as i32 + a.1 + test.1) as usize
-                ) == Piece::None
-                    && get_at!(
-                        self,
-                        (self.line_active as i32 + b.0 + test.0) as usize,
-                        (self.col_active as i32 + b.1 + test.1) as usize
-                    ) == Piece::None
-                    && get_at!(
-                        self,
-                        (self.line_active as i32 + c.0 + test.0) as usize,
-                        (self.col_active as i32 + c.1 + test.1) as usize
-                    ) == Piece::None
+            let la = self.line_active as i32;
+            let ca = self.col_active as i32;
+            for test in std::iter::once((0, 0)).chain(tests.into_iter()) {
+                if get_at!(self, (la + test.0), (ca + test.1)) == Piece::None
+                    && get_at!(self, (la + a.0 + test.0), (ca + a.1 + test.1)) == Piece::None
+                    && get_at!(self, (la + b.0 + test.0), (ca + b.1 + test.1)) == Piece::None
+                    && get_at!(self, (la + c.0 + test.0), (ca + c.1 + test.1)) == Piece::None
                 {
                     // put piece in place
                     self.set_piece_at(
                         self.piece_active,
                         rot_final,
                         self.piece_active,
-                        self.line_active,
-                        self.col_active,
+                        (la + test.0) as usize,
+                        (ca + test.1) as usize,
                     );
+                    self.line_active = (la + test.0) as usize;
+                    self.col_active = (ca + test.1) as usize;
                     self.rot_active = rot_final;
                     return;
                 }
@@ -310,9 +407,10 @@ impl Tetris {
         }
         self.col_active = 4;
         self.line_active = 3;
+        self.rot_active = Rotation::Spawn;
         self.set_piece_at(
             self.piece_active,
-            Rotation::Spawn,
+            self.rot_active,
             self.piece_active,
             self.line_active,
             self.col_active,

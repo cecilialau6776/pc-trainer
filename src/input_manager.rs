@@ -47,7 +47,7 @@ impl InputManager {
             swap: vec![Scancode::LShift],
         }
     }
-    pub fn process_input(&mut self, event: Event, game: &mut Tetris) {
+    pub fn process_input(&mut self, event: Event, game: &mut Tetris, timestamp: SystemTime) {
         if let Event::KeyDown {
             repeat: false,
             scancode,
@@ -67,8 +67,10 @@ impl InputManager {
                 }
             } else if self.softdrop.contains(&sc) {
                 if game.state() == State::Playing {
-                    game.move_active(Direction::Down);
-                    self.event_queue.push_back(event); // for das timings
+                    match self.sdf {
+                        100 => game.softdrop_instant(timestamp),
+                        _ => game.softdrop_start(self.sdf),
+                    }
                 }
             } else if self.rot_counterclockwise.contains(&sc) {
                 if game.state() == State::Playing {
@@ -78,9 +80,13 @@ impl InputManager {
                 if game.state() == State::Playing {
                     game.rot_active(Rotation::Right);
                 }
+            } else if self.harddrop.contains(&sc) {
+                if game.state() == State::Playing {
+                    game.harddrop();
+                }
             }
         }
     }
 
-    pub fn update(&self, timestamp: SystemTime) {}
+    pub fn update(&self, timestamp: u32) {}
 }
