@@ -3,8 +3,8 @@ use sdl2::pixels::Color;
 use sdl2::rect::Rect;
 use sdl2::render::Canvas;
 use sdl2::video::Window;
-use std::collections::VecDeque;
-use std::time::SystemTime;
+use std::time::{Duration, SystemTime};
+use std::{collections::VecDeque, time::UNIX_EPOCH};
 
 use crate::{get_at, get_color, get_deltas, set_at};
 
@@ -87,6 +87,9 @@ pub struct Tetris {
     gravity_timestamp: SystemTime,
     swap_piece: Piece,
     swapped: bool,
+    max_lock_reset_count: u32, // max number of times lock can be cancelled before active locks anyway
+    lock_reset_count: u32,
+    lock_delay: u32, // time in ms to wait until a piece is locked automatically
 }
 
 impl Tetris {
@@ -121,17 +124,21 @@ impl Tetris {
             line_active: 0,
             rot_active: Rotation::Spawn,
             lock_timestamp: SystemTime::UNIX_EPOCH,
-            current_gravity: 0,
-            gravity: 0,
+            current_gravity: 200,
+            gravity: 200,
             gravity_timestamp: SystemTime::UNIX_EPOCH,
             swap_piece: Piece::None,
             swapped: false,
+            max_lock_reset_count: 20,
+            lock_reset_count: 0,
+            lock_delay: 500,
         }
     }
 
-    pub fn start(&mut self) {
+    pub fn start(&mut self, timestamp: SystemTime) {
         self.state = State::Playing;
         self.spawn_next(None);
+        self.gravity_timestamp = timestamp;
     }
 
     pub fn state(&self) -> State {
@@ -152,9 +159,9 @@ impl Tetris {
         self.current_gravity = self.gravity;
     }
 
-    pub fn harddrop(&mut self) {
+    pub fn harddrop(&mut self, timestamp: SystemTime) {
         while self.move_active(Direction::Down) {}
-        self.lock_active();
+        self.lock_active(timestamp);
     }
 
     pub fn swap(&mut self) {
@@ -178,7 +185,12 @@ impl Tetris {
         }
     }
 
-    fn lock_active(&mut self) {
+    fn lock_active(&mut self, timestamp: SystemTime) {
+        // reset lock time
+        self.lock_timestamp = UNIX_EPOCH;
+        self.lock_reset_count = 0;
+        self.gravity_timestamp = timestamp;
+
         self.swapped = false;
         let ((a, _), (b, _), (c, _)) = get_deltas!(self.piece_active, self.rot_active);
         // update row counts
@@ -186,7 +198,6 @@ impl Tetris {
         self.row_counts[self.line_map[(self.line_active as i32 + a) as usize]] += 1;
         self.row_counts[self.line_map[(self.line_active as i32 + b) as usize]] += 1;
         self.row_counts[self.line_map[(self.line_active as i32 + c) as usize]] += 1;
-        // println!("{:?}", self.row_counts);
         // TODO: do something with lines cleared
         let mut lines_cleared = 0;
         let mut i = BOARD_HEIGHT - 1;
@@ -383,9 +394,42 @@ impl Tetris {
         }
     }
 
-    pub fn update(&self, timestamp: SystemTime) {
-        // TODO: lock in piece if time is correct
-        // TODO: check for cleared lines
+    pub fn update(&mut self, timestamp: SystemTime) {
+        // lock in piece if time is correct or number of lock delay cancels exeeds max
+        if self.lock_timestamp != UNIX_EPOCH {
+            if let Ok(dur) = timestamp.duration_since(self.lock_timestamp) {
+                if dur.as_millis() > self.lock_delay as u128
+                    || self.lock_reset_count > self.max_lock_reset_count
+                {
+                    self.lock_active(timestamp);
+                }
+            }
+        }
+
+        // process gravity
+        if self.current_gravity > 0 && self.gravity_timestamp != UNIX_EPOCH {
+            if let Ok(dur) = timestamp.duration_since(self.gravity_timestamp) {
+                let dur_millis = dur.as_millis() as u64;
+                let moves = dur_millis / self.current_gravity as u64;
+                if dur_millis > self.current_gravity as u64 {
+                    for i in 0..moves {
+                        if !self.move_active(Direction::Down) {
+                            self.gravity_timestamp = self
+                                .gravity_timestamp
+                                .checked_add(Duration::from_millis(i * self.current_gravity as u64))
+                                .unwrap();
+                            self.lock_timestamp = self.gravity_timestamp;
+                            self.gravity_timestamp = UNIX_EPOCH;
+                            return;
+                        }
+                    }
+                    self.gravity_timestamp = self
+                        .gravity_timestamp
+                        .checked_add(Duration::from_millis(moves * self.current_gravity as u64))
+                        .unwrap();
+                }
+            }
+        }
     }
 
     fn set_piece_at(

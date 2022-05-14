@@ -109,7 +109,7 @@ impl InputManager {
                 }
             } else if self.harddrop.contains(&sc) {
                 if game.state() == State::Playing {
-                    game.harddrop();
+                    game.harddrop(timestamp);
                 }
             } else if self.swap.contains(&sc) {
                 if game.state() == State::Playing {
@@ -128,6 +128,7 @@ impl InputManager {
             } else if self.right.contains(&sc) {
                 self.events.retain(|e| e.0 != Input::Right)
             } else if self.softdrop.contains(&sc) {
+                game.softdrop_stop();
                 self.events.retain(|e| e.0 != Input::Down)
             }
         }

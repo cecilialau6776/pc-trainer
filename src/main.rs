@@ -34,7 +34,8 @@ pub fn main() -> Result<(), String> {
     let mut input_manager = InputManager::new();
     // game loop
     let mut current_time = SystemTime::now();
-    boards[0].start();
+    // TODO: make game start later
+    boards[0].start(current_time);
     'game_loop: loop {
         // calculate frame time and fps
         let new_time = SystemTime::now();
@@ -56,7 +57,7 @@ pub fn main() -> Result<(), String> {
         }
 
         // update playing board
-        // boards[0].update(&current_time);
+        boards[0].update(current_time);
 
         renderer.render(&boards)?;
     }
