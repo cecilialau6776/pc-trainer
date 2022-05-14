@@ -421,6 +421,23 @@ impl Tetris {
         );
     }
 
+    pub fn get_hold(&self) -> Option<Piece> {
+        match self.swap_piece {
+            Piece::None => None,
+            _ => Some(self.swap_piece),
+        }
+    }
+
+    pub fn get_queue(&self) -> [Piece; 5] {
+        [
+            *self.queue.get(0).unwrap(),
+            *self.queue.get(1).unwrap(),
+            *self.queue.get(2).unwrap(),
+            *self.queue.get(3).unwrap(),
+            *self.queue.get(4).unwrap(),
+        ]
+    }
+
     fn queue_add_bag(&mut self) {
         let mut pieces_clone = PIECES.clone();
         pieces_clone.shuffle(&mut self.rng);
