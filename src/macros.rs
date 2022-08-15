@@ -25,7 +25,7 @@ macro_rules! get_at {
         if $line < 0 || $line >= BOARD_HEIGHT as i32 || $col < 0 || $col >= BOARD_WIDTH as i32 {
             Piece::O
         } else {
-            $self.board[$self.line_map[$line as usize]][$col as usize]
+            $self.board.board[$line as usize][$col as usize]
         }
     };
 }

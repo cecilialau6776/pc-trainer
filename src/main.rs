@@ -1,11 +1,14 @@
+mod history_manager;
 mod input_manager;
 mod macros;
 mod render;
+mod solver;
 mod tetris;
 
 extern crate sdl2;
 
 use crate::tetris::Tetris;
+use history_manager::HistoryManager;
 use input_manager::InputManager;
 use render::Renderer;
 use sdl2::event::Event;
@@ -23,7 +26,8 @@ const S_COLOR: Color = Color::RGBA(50, 205, 50, 255);
 const O_COLOR: Color = Color::RGBA(255, 223, 0, 255);
 
 pub fn main() -> Result<(), String> {
-    let mut boards = [Tetris::new()];
+    let mut history_manager = HistoryManager::new();
+    let mut boards = [Tetris::new(Some(&history_manager))];
 
     let (texture_creator, mut renderer) = Renderer::new()?;
     renderer.init(&texture_creator)?;
